@@ -1,0 +1,288 @@
+------------------------------------------
+Kabar baiknya: Bisa banget tanpa domain! Memang, harus membeli domain kadang jadi hambatan kalau kita hanya butuh akses online untuk kebutuhan testing atau development.
+
+Sebagai solusinya, Cloudflare menyediakan fitur bernama Quick Tunnels (atau TryCloudflare). Fitur ini tidak membutuhkan domain pribadi dan bahkan tidak mewajibkan Anda punya akun Cloudflare. Cloudflare akan otomatis membuatkan URL acak sementara (misalnya: https://kucing-terbang-merah.trycloudflare.com).
+
+Mengingat Anda sering mengembangkan berbagai project seperti web Next.js atau API berbasis Python, Quick Tunnels ini sangat cocok untuk melakukan testing webhook, menguji integrasi aplikasi mobile ke server lokal, atau sekadar memamerkan progress aplikasi ke klien tanpa harus deploy ke VPS.
+
+Berikut adalah cara menggunakan Quick Tunnels di Ubuntu Anda:
+
+1. Install cloudflared di Ubuntu
+Buka terminal Ubuntu Anda dan jalankan dua perintah ini secara berurutan untuk mengunduh dan menginstal aplikasi Cloudflare:
+
+Bash
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+2. Jalankan Quick Tunnel
+Setelah terinstal, Anda hanya perlu menjalankan satu perintah. Misalnya, jika web server lokal Anda berjalan di port standar (80), gunakan perintah ini:
+
+Bash
+cloudflared tunnel --url http://localhost:80
+(Catatan: Anda bisa mengubah angka 80 sesuai dengan port aplikasi Anda yang sedang berjalan, misalnya 3000 untuk Next.js atau 8000 untuk backend Python).
+
+3. Dapatkan Link Publik Anda
+Setelah perintah di atas dijalankan, perhatikan output di terminal Anda. Anda akan melihat sebuah link panjang yang berakhiran .trycloudflare.com.
+
+Salin link tersebut dan buka di browser (bisa dari HP atau jaringan luar). Server Ubuntu Anda sekarang sudah online secara publik dengan koneksi HTTPS yang aman!
+
+Kekurangan Quick Tunnels:
+
+Bersifat Sementara: Link acak ini hanya hidup selama terminal Anda tetap terbuka dan perintah cloudflared berjalan.
+
+Berubah-ubah: Jika koneksi terputus atau Anda menekan Ctrl+C untuk menghentikan terminal, Anda harus menjalankan perintahnya lagi dan Cloudflare akan memberikan URL acak yang baru.
+------------------------------------------
+
+------------------------------------------
+Instalasinya berhasil! 🎉 Cloudflare sudah berhasil membuatkan link publik untuk server Ubuntu Anda:
+https://rod-talking-streams-wrap.trycloudflare.com
+
+Namun, kalau Anda buka link tersebut sekarang, pasti akan muncul error (biasanya 502 Bad Gateway). Alasannya bisa dilihat pada baris paling bawah log Anda:
+
+ERR error="Unable to reach the origin service... dial tcp 127.0.0.1:80: connect: connection refused"
+
+Apa arti error ini?
+Cloudflare sudah berhasil menghubungkan server Anda ke internet. Tapi, saat Cloudflare mencoba meneruskan pengunjung ke localhost:80 di Ubuntu Anda, Cloudflare mendapati tidak ada aplikasi atau web server yang sedang berjalan di port 80 tersebut (pintunya tertutup/ditolak).
+
+(Catatan: Warning soal ICMP proxy di tengah log itu aman untuk diabaikan, itu hal wajar saat menjalankan Quick Tunnels di Linux).
+
+Cara Memperbaikinya
+Untuk mengatasi ini, Anda harus menyesuaikan perintahnya dengan aplikasi web yang sebenarnya sedang Anda jalankan.
+
+Opsi 1: Jika Anda sudah punya aplikasi yang berjalan di port lain
+Hentikan dulu proses cloudflared yang sedang berjalan di terminal dengan menekan tombol Ctrl + C. Lalu jalankan ulang dengan port yang sesuai.
+
+Misalnya, jika Anda sedang menjalankan web Next.js, biasanya berjalan di port 3000:
+
+Bash
+cloudflared tunnel --url http://localhost:3000
+Jika Anda menjalankan API Python/FastAPI, biasanya di port 8000:
+
+Bash
+cloudflared tunnel --url http://localhost:8000
+Opsi 2: Jika Anda belum punya web server sama sekali (Hanya ingin tes)
+Jika Ubuntu Anda masih kosong dan Anda hanya ingin membuktikan bahwa tunnel ini berhasil, kita bisa menjalankan web server sementara bawaan Python.
+
+Buka terminal baru (biarkan terminal Cloudflare tetap berjalan), lalu jalankan perintah ini untuk membuat web server sederhana di port 8000:
+
+Bash
+python3 -m http.server 8000
+Kembali ke terminal tempat Anda menjalankan Cloudflare, tekan Ctrl + C untuk mematikannya, lalu jalankan ulang ke port 8000:
+
+Bash
+cloudflared tunnel --url http://localhost:8000
+Buka link .trycloudflare.com yang baru muncul. Anda akan melihat isi direktori file dari server Ubuntu Anda secara online!
+------------------------------------------
+
+------------------------------------------
+Oke, langkah selanjutnya adalah menyiapkan "rumah" atau wadah untuk website Anda di dalam server Ubuntu. Karena sebelumnya Cloudflare mencari aplikasi di port 80 (port standar untuk lalu lintas web), cara paling umum dan handal adalah dengan menginstal Nginx.
+
+Nginx berfungsi sebagai web server yang akan menerima pengunjung dari Cloudflare dan menampilkan file website Anda.
+
+Berikut adalah langkah-langkah untuk deploy website pertama Anda di Ubuntu:
+
+Langkah 1: Install Nginx
+Buka terminal Ubuntu Anda dan jalankan perintah ini untuk memperbarui daftar paket dan menginstal Nginx:
+
+Bash
+sudo apt update
+sudo apt install nginx -y
+Langkah 2: Pastikan Nginx Sudah Berjalan
+Setelah instalasi selesai, Nginx biasanya otomatis menyala di port 80. Anda bisa memastikannya dengan perintah:
+
+Bash
+sudo systemctl status nginx
+(Cari tulisan active (running) berwarna hijau. Jika sudah, tekan tombol q di keyboard untuk keluar dari tampilan status).
+
+Langkah 3: Masukkan (Deploy) File Website Anda
+Secara bawaan, Nginx akan menampilkan file website yang diletakkan di dalam folder /var/www/html. Kita akan mengganti halaman bawaan Nginx dengan halaman web Anda sendiri.
+
+Pindah ke direktori web Nginx:
+
+Bash
+cd /var/www/html
+Hapus file halaman bawaan Nginx:
+
+Bash
+sudo rm index.nginx-debian.html
+Buat file index.html baru:
+
+Bash
+sudo nano index.html
+Ketikkan kode HTML sederhana untuk uji coba. Misalnya:
+
+HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Server Ubuntu</title>
+</head>
+<body>
+    <h1>Berhasil! Web server Ubuntu saya sudah online.</h1>
+</body>
+</html>
+Simpan file tersebut dengan menekan Ctrl + O, lalu tekan Enter, kemudian keluar dengan menekan Ctrl + X.
+
+Catatan: Jika Anda sedang mendeploy aplikasi modern seperti Next.js atau API menggunakan Python (FastAPI), Anda tidak perlu menaruh file di folder /var/www/html. Anda cukup menjalankan project tersebut di direktori mana saja sesuai port-nya (misalnya 3000 atau 8000), lalu langsung arahkan Cloudflare ke port tersebut.
+
+Langkah 4: Jalankan Ulang Cloudflare Tunnel
+Sekarang web server Nginx Anda sudah siap menerima tamu di port 80. Jalankan kembali perintah Cloudflare Anda di terminal:
+
+Bash
+cloudflared tunnel --url http://localhost:80
+Tunggu beberapa detik sampai muncul kotak berisi link yang berakhiran .trycloudflare.com. Salin link tersebut dan buka di browser HP atau komputer Anda. Anda seharusnya sudah melihat halaman web yang baru saja Anda buat!
+------------------------------------------
+
+------------------------------------------
+Gemini said
+Pilihan yang sangat tepat! Next.js adalah framework yang luar biasa untuk membangun aplikasi web modern dan responsif.
+
+Untuk menjalankan project Next.js di server Ubuntu, Anda memerlukan Node.js. Mengingat Anda terbiasa mengelola source code menggunakan Git, cara paling efisien adalah dengan menarik (clone) repository Anda langsung dari GitHub ke server Ubuntu.
+
+Berikut adalah langkah-langkah untuk men-deploy Next.js dan menyambungkannya ke Cloudflare:
+
+Langkah 1: Install Node.js dan npm di Ubuntu
+Pertama, kita harus menginstal Node.js versi terbaru (misalnya versi 20 atau 22) karena versi bawaan Ubuntu kadang terlalu usang untuk Next.js. Jalankan perintah ini di terminal:
+
+Bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+Cek apakah instalasi berhasil:
+
+Bash
+node -v
+npm -v
+Langkah 2: Ambil (Clone) Project Next.js Anda
+Gunakan Git untuk mengunduh project Anda ke dalam server.
+
+Clone repository Anda (ganti URL dengan link repo Anda):
+
+Bash
+git clone https://github.com/username/repo-nextjs-anda.git
+Masuk ke dalam folder project tersebut:
+
+Bash
+cd repo-nextjs-anda
+Langkah 3: Install Dependencies dan Build Project
+Di dalam folder project Next.js, Anda perlu menginstal semua modul yang dibutuhkan dan mem-build project-nya untuk production.
+
+Install dependencies:
+
+Bash
+npm install
+Build project Next.js:
+
+Bash
+npm run build
+Jalankan web server Next.js:
+
+Bash
+npm run start
+(Catatan: Setelah perintah npm run start dijalankan, Next.js biasanya akan aktif di http://localhost:3000 dan terminal ini harus dibiarkan terbuka).
+
+Langkah 4: Hubungkan Cloudflare ke Port Next.js
+Karena web Next.js Anda sekarang berjalan di port 3000 (bukan 80), kita harus mengarahkan tunnel Cloudflare ke port tersebut.
+
+Buka jendela terminal/SSH baru untuk Ubuntu Anda (biarkan terminal pertama tetap menjalankan Next.js).
+
+Jalankan perintah Cloudflare Tunnel ini:
+
+Bash
+cloudflared tunnel --url http://localhost:3000
+Selesai! Tunggu beberapa saat sampai link .trycloudflare.com muncul di terminal. Jika link tersebut dibuka, Anda akan langsung melihat web Next.js Anda live dan bisa diakses dari mana saja.
+------------------------------------------
+
+------------------------------------------
+Keputusan yang sangat tepat! Menyimpan database dan storage (file/gambar) langsung di server Ubuntu lokal akan menghemat biaya langganan cloud (seperti AWS S3 atau Supabase) dan memberi Anda kontrol penuh atas data Anda.
+
+Untuk aplikasi Next.js, kombinasi yang paling sering digunakan dan sangat andal untuk local server adalah PostgreSQL (sebagai database) dan Local File System (untuk storage).
+
+Berikut adalah panduan lengkap untuk mengatur semuanya di server Ubuntu Anda:
+
+1. Setup Database Lokal (PostgreSQL)
+PostgreSQL sangat disarankan untuk Next.js, terutama jika Anda menggunakan ORM seperti Prisma atau Drizzle.
+
+A. Install PostgreSQL:
+Buka terminal Ubuntu Anda dan jalankan:
+
+Bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib -y
+B. Buat Database dan User:
+Masuk ke terminal PostgreSQL:
+
+Bash
+sudo -u postgres psql
+Di dalam prompt postgres=#, jalankan perintah berikut (ganti password_rahasia dengan password yang Anda inginkan):
+
+SQL
+CREATE DATABASE app_database;
+CREATE USER app_user WITH ENCRYPTED PASSWORD 'password_rahasia';
+GRANT ALL PRIVILEGES ON DATABASE app_database TO app_user;
+\q
+(Ketik \q lalu tekan Enter untuk keluar).
+
+C. Sambungkan ke Next.js:
+Di dalam file .env project Next.js Anda, format DATABASE_URL Anda sekarang akan terlihat seperti ini:
+
+Code snippet
+DATABASE_URL="postgresql://app_user:password_rahasia@localhost:5432/app_database"
+2. Setup Local Storage (Penyimpanan File)
+Untuk menyimpan file hasil upload dari user (misalnya foto profil atau dokumen), Anda tidak perlu menginstal aplikasi tambahan. Anda bisa menggunakan sistem folder (File System) bawaan Ubuntu.
+
+Ada dua pendekatan umum untuk Next.js:
+
+Pendekatan A: Simpan di dalam folder public (Paling Mudah)
+Anda bisa membuat folder uploads di dalam direktori public Next.js Anda.
+
+Kelebihan: File bisa langsung diakses lewat URL browser, misalnya https://link-cloudflare-anda.com/uploads/foto.png.
+
+Cara kerja: Di kode API Next.js Anda, gunakan library Node.js seperti fs (File System) atau formidable untuk menyimpan file fisik langsung ke ./public/uploads.
+
+Pendekatan B: Simpan di luar direktori project (Lebih Aman)
+Jika Anda tidak ingin file upload terhapus saat Anda melakukan git pull atau update aplikasi, simpan di luar folder project.
+
+Buat folder di Ubuntu: sudo mkdir -p /var/www/uploads
+
+Beri izin baca/tulis: sudo chmod -R 777 /var/www/uploads
+
+Di Next.js, Anda membuat API route khusus (misal /api/image/[namafile]) yang akan membaca file dari /var/www/uploads dan mengirimkannya ke browser klien.
+
+3. Buat Next.js Menyala 24/7 (Menggunakan PM2)
+Jika Anda hanya menjalankan npm run start, website akan mati saat Anda menutup terminal SSH. Agar Next.js berjalan non-stop di latar belakang:
+
+Install PM2 (Manajer proses untuk Node.js):
+
+Bash
+sudo npm install -g pm2
+Build dan Jalankan Next.js:
+Pastikan Anda berada di dalam folder project Next.js Anda, lalu jalankan:
+
+Bash
+npm run build
+pm2 start npm --name "nextjs-app" -- start
+Agar PM2 otomatis menyala saat server Ubuntu di-restart:
+
+Bash
+pm2 startup
+pm2 save
+Sekarang, aplikasi Next.js Anda sudah hidup selamanya di localhost:3000.
+
+4. Menjalankan Cloudflare Tunnel di Latar Belakang
+Sama seperti Next.js, jika Anda menggunakan Quick Tunnel (trycloudflare), link tersebut akan mati jika terminal ditutup.
+
+Karena Anda menggunakan fitur coba-coba (tanpa akun), cara termudah agar tunnel tetap hidup di latar belakang adalah menggunakan perintah nohup:
+
+Bash
+nohup cloudflared tunnel --url http://localhost:3000 > tunnel-log.txt 2>&1 &
+Perintah ini akan menjalankan Cloudflare di latar belakang.
+
+Untuk melihat link publik .trycloudflare.com Anda, jalankan perintah ini untuk membaca log-nya:
+
+Bash
+cat tunnel-log.txt | grep trycloudflare
+Selesai! Sekarang server Ubuntu Anda sudah berfungsi penuh sebagai Web Server, Database Server, dan Storage Server sekaligus.
+------------------------------------------
+
+------------------------------------------
+
+------------------------------------------
