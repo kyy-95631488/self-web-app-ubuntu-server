@@ -284,5 +284,44 @@ Selesai! Sekarang server Ubuntu Anda sudah berfungsi penuh sebagai Web Server, D
 ------------------------------------------
 
 ------------------------------------------
-
+echo "# self-web-app-ubuntu-server" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/kyy-95631488/self-web-app-ubuntu-server.git
+git push -u origin main
 ------------------------------------------
+
+pm2 start npm --name "super-app" -- start
+pm2 save
+pm2 startup
+
+npx prisma generate
+
+root@kyy-rdn:~# nohup cloudflared tunnel --url http://localhost:3000 > tunnel.log 2>&1 &
+root@kyy-rdn:~# cat tunnel.log | grep trycloudflare  
+
+==========================================
+Di Ubuntu Server, secara default laptop akan sleep/hibernate saat layar ditutup. Biar tetap nyala (misalnya buat server jalan terus), kamu bisa ubah setting di systemd logind.
+
+🔧 Cara biar laptop tetap nyala saat ditutup
+Edit file config:
+sudo nano /etc/systemd/logind.conf
+Cari baris ini (hapus tanda # kalau masih ada):
+HandleLidSwitch=ignore
+
+Kalau belum ada, tambahin aja di bawah:
+
+HandleLidSwitch=ignore
+HandleLidSwitchDocked=ignore
+Simpan (CTRL + X → Y → Enter)
+Restart service:
+sudo systemctl restart systemd-logind
+💡 Penjelasan
+HandleLidSwitch=ignore → laptop tidak ngapa-ngapain saat layar ditutup
+HandleLidSwitchDocked=ignore → tetap berlaku walau pakai monitor eksternal
+⚠️ Catatan penting
+Pastikan laptop tidak overheat (soalnya tertutup = panas lebih cepat)
+Kalau dipakai server (SSH, hotspot, dll), ini memang setting yang umum dipakai
+===========================================

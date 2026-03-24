@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
-
+// prisma/scema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,8 +23,9 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          Role      @default(USER) // Default role adalah USER
+  role          Role      @default(USER)
   accounts      Account[]
+  sessions      Session[]
 }
 
 model Account {
@@ -43,4 +44,20 @@ model Account {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }

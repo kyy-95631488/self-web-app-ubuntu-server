@@ -1,15 +1,24 @@
+// File: types/next-auth.d.ts
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import NextAuth, { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
   interface Session {
     user: {
-      role: "USER" | "ADMIN"
+      id: string;
+      role: "USER" | "ADMIN";
     } & DefaultSession["user"]
   }
 
   interface User {
-    // Tambahkan tanda tanya (?) di sini agar Adapter tidak kebingungan
-    role?: "USER" | "ADMIN" 
+    role: "USER" | "ADMIN";
+    remember?: boolean;          // ← TAMBAHAN INI (fix error remember)
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    role: "USER" | "ADMIN";
+    id?: string;
   }
 }
